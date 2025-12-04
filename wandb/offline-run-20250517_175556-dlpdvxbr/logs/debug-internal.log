@@ -1,0 +1,7 @@
+{"time":"2025-05-17T17:55:56.824947294+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.8","symlink path":"/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/main/wandb/offline-run-20250517_175556-dlpdvxbr/logs/debug-core.log"}
+{"time":"2025-05-17T17:55:56.926419311+01:00","level":"INFO","msg":"created new stream","id":"dlpdvxbr"}
+{"time":"2025-05-17T17:55:56.926439024+01:00","level":"INFO","msg":"stream: started","id":"dlpdvxbr"}
+{"time":"2025-05-17T17:55:56.926480481+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"dlpdvxbr"}
+{"time":"2025-05-17T17:55:56.926484914+01:00","level":"INFO","msg":"sender: started","stream_id":"dlpdvxbr"}
+{"time":"2025-05-17T17:55:56.926486579+01:00","level":"INFO","msg":"handler: started","stream_id":"dlpdvxbr"}
+{"time":"2025-05-17T17:55:56.929175692+01:00","level":"INFO","msg":"Starting system monitor"}

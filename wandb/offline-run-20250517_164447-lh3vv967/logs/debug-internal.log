@@ -1,0 +1,7 @@
+{"time":"2025-05-17T16:44:47.355931192+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.8","symlink path":"/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/main/wandb/offline-run-20250517_164447-lh3vv967/logs/debug-core.log"}
+{"time":"2025-05-17T16:44:47.458733069+01:00","level":"INFO","msg":"created new stream","id":"lh3vv967"}
+{"time":"2025-05-17T16:44:47.458750582+01:00","level":"INFO","msg":"stream: started","id":"lh3vv967"}
+{"time":"2025-05-17T16:44:47.458788289+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"lh3vv967"}
+{"time":"2025-05-17T16:44:47.45882264+01:00","level":"INFO","msg":"sender: started","stream_id":"lh3vv967"}
+{"time":"2025-05-17T16:44:47.45882909+01:00","level":"INFO","msg":"handler: started","stream_id":"lh3vv967"}
+{"time":"2025-05-17T16:44:47.46179512+01:00","level":"INFO","msg":"Starting system monitor"}

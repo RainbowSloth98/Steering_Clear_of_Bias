@@ -1,0 +1,7 @@
+{"time":"2025-05-17T16:54:11.264326087+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.8","symlink path":"/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/main/wandb/offline-run-20250517_165411-pvo3zqf6/logs/debug-core.log"}
+{"time":"2025-05-17T16:54:11.366001641+01:00","level":"INFO","msg":"created new stream","id":"pvo3zqf6"}
+{"time":"2025-05-17T16:54:11.366020282+01:00","level":"INFO","msg":"stream: started","id":"pvo3zqf6"}
+{"time":"2025-05-17T16:54:11.366065144+01:00","level":"INFO","msg":"sender: started","stream_id":"pvo3zqf6"}
+{"time":"2025-05-17T16:54:11.366116405+01:00","level":"INFO","msg":"handler: started","stream_id":"pvo3zqf6"}
+{"time":"2025-05-17T16:54:11.366061655+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"pvo3zqf6"}
+{"time":"2025-05-17T16:54:11.369384271+01:00","level":"INFO","msg":"Starting system monitor"}

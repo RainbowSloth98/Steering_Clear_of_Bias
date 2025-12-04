@@ -1,0 +1,41 @@
+{
+  "os": "Linux-6.1.0-34-amd64-x86_64-with-glibc2.36",
+  "python": "CPython 3.11.2",
+  "startedAt": "2025-05-17T15:49:51.570441Z",
+  "program": "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/main/SAE_for_Asylex.py",
+  "codePath": "SAE_for_Asylex.py",
+  "git": {
+    "remote": "https://github.com/RainbowSloth98/main.git",
+    "commit": "b1c32ae5521872f43ae701fd645d5d7b0aae8019"
+  },
+  "root": "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/main",
+  "host": "dhcp-10-30-88-74",
+  "executable": "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/.venv/bin/python",
+  "codePathLocal": "SAE_for_Asylex.py",
+  "cpu_count": 10,
+  "cpu_count_logical": 20,
+  "gpu": "NVIDIA RTX A5000",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "1005441241088",
+      "used": "691179581440"
+    }
+  },
+  "memory": {
+    "total": "67042865152"
+  },
+  "cpu": {
+    "count": 10,
+    "countLogical": 20
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA RTX A5000",
+      "memoryTotal": "25757220864",
+      "cudaCores": 8192,
+      "architecture": "Ampere"
+    }
+  ],
+  "cudaVersion": "12.9"
+}

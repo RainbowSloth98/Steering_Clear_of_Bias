@@ -3,14 +3,16 @@ import os
 import torch
 import json
 import numpy as np
+import seaborn as sns
 import torch.nn.functional as F
 import torch.nn as nn
 import pickle
 import pandas as pd
 from collections import namedtuple
 from functools import partial
-
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import plotly.express as px
 
 from more_itertools import windowed
@@ -19,6 +21,7 @@ from datasets import load_dataset
 from transformers.tokenization_utils_base import BatchEncoding
 
 from dictionary_learning import AutoEncoder
+from dictionary_learning.trainers.batch_top_k import BatchTopKSAE
 from dictionary_learning.trainers import StandardTrainer
 from nnsight import LanguageModel
 from nnsight.module import Module
@@ -112,17 +115,17 @@ store_p = "/media/strah/344A08F64A08B720/Work_related/store/"
 
 tens_ds_p = load_p + f"{model_type}_tokds/gentpick{f_c}_tokds.pt"
 
-sae_path = load_p + "pre1_sae6_7000.pt"
+# sae_path = load_p + "pre1_sae6_7000.pt" old
+sae_path = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/mact/loads/BTK_SAE6_144000.pt"
+
+
+
 labs_p = load_p + "cleargen_labs_26_9_25.pkl"
 
 
 #classhead path
 # classhead_p = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/classifier/saves/bert/POOL/model_v2/checkpoint-1734/"
 classhead_p = root_p + "classhead/checkpoint-1650/"
-
-#For loading max_acts to test.
-#TODO Check if these actually still work; Should do.
-store_p = store_p  + "pre_max_act/"
 
 
 mact_namer = "maxact_sparse_6_7000.pkl"
@@ -244,10 +247,12 @@ def create_overlapping_chunks(tokens, chunk_size=512, overlap=100):
 		yield tokens[i:i + chunk_size]
 
 
+
 def _printer(pre,post):
 	print(pre)
 	print("#"*50)
 	print(post)
+
 
 
 #region* monkey patching torch.load
@@ -261,6 +266,7 @@ def ntorch_load(*args, **kwargs):
 torch.load = ntorch_load #?its good practice to restore the function when done
 
 #endregion
+
 
 
 def single_mactensor_recreate(indies,vals):
@@ -285,7 +291,6 @@ def show_act(tens,namer):
 	)
 
 	return fig
-
 
 
 #endregion
@@ -322,12 +327,14 @@ tok.backend_tokenizer.enable_padding(length=seq_len, pad_id=tok.pad_token_id,pad
 
 #region SAE
 
-with open(sae_path,"rb") as f:
-	ae_state_dict = torch.load(f)
+# with open(sae_path,"rb") as f:
+# 	ae_state_dict = torch.load(f)
 
-	ae6 = AutoEncoder(activation_dim = act_dim, dict_size=dict_size)
-	ae6.load_state_dict(ae_state_dict)
-	ae6.to(device)
+# 	ae6 = AutoEncoder(activation_dim = act_dim, dict_size=dict_size)
+# 	ae6.load_state_dict(ae_state_dict)
+# 	ae6.to(device)
+
+ae6 = BatchTopKSAE.from_pretrained(sae_path,device=device)
 
 #! For steering to work, we need to register our SAE with the nnsight framework
 model.ae6 = ae6
@@ -366,9 +373,9 @@ y_np = labs.to(torch.int).numpy()
 
 #? Automatically compute weights
 class_weights = compute_class_weight(
-    class_weight='balanced', 
-    classes=np.unique(y_np), 
-    y=y_np
+	class_weight='balanced', 
+	classes=np.unique(y_np), 
+	y=y_np
 )
 
 
@@ -386,9 +393,9 @@ samples_weight = torch.tensor([weight_map[x] for x in y_np], dtype=torch.float)
 
 # 3. Create the sampler
 sampler = WeightedRandomSampler(
-    weights=samples_weight,
-    num_samples=len(samples_weight),
-    replacement=True
+	weights=samples_weight,
+	num_samples=len(samples_weight),
+	replacement=True
 )
 
 
@@ -417,18 +424,17 @@ diter = iter(loader)
 
 
 
-#region Mact load
+#region# Mact load
 
-#Max acts
-with open(mact_p,"rb") as f:
-	mact= pickle.load(f)
+# #Max acts
+# with open(mact_p,"rb") as f:
+# 	mact= pickle.load(f)
 
-
-#endregion
-
+#endregion#
 
 
-#region Diff_Vecs (Where applicable)
+
+#region# Diff_Vecs (Where applicable)
 
 #########################################
 #region# T1: Difference vectors
@@ -531,7 +537,7 @@ with open(mact_p,"rb") as f:
 #########################################
 
 
-#endregion
+#endregion#
 
 
 
@@ -560,58 +566,61 @@ with open(mact_p,"rb") as f:
 
 #endregion*# T1: Toy inputs for guygirl testing steering
 #########################################
-#region*# T2: Contrasting pairs for gender
+#region* T2: Contrasting pairs for gender
 
-#region**# T2 Examples
 
-# m0t2 = "Joseph is male, and he knows it."
-# f0t2 = "Kate is female, and she knows it."
+#region** T2 Examples
 
-# m1t2 = "Danny is a beautiful guy, or at least he thinks so."
-# f1t2 = "Ella is a beautiful gal, or at least she thinks so."
+m0t2 = "Joseph is male, and he knows it."
+f0t2 = "Kate is female, and she knows it."
 
-# m2t2 = "Ollie is a lovely boy, he always behaves nicely."
-# f2t2 = "Jenny is a lovely girl, she always behaves nicely."
+m1t2 = "Danny is a beautiful guy, or at least he thinks so."
+f1t2 = "Ella is a beautiful gal, or at least she thinks so."
 
-# m3t2 = "James is a real man, he does many things to show it."
-# f3t2 = "Juliet is a real woman, she does many things to show it."
+m2t2 = "Ollie is a lovely boy, he always behaves nicely."
+f2t2 = "Jenny is a lovely girl, she always behaves nicely."
 
-# m4t2 = "The passport says the traveller is male."
-# f4t2 = "The passport says the traveller is female."
+m3t2 = "James is a real man, he does many things to show it."
+f3t2 = "Juliet is a real woman, she does many things to show it."
 
-# m5t2 = "He went to the shops yesterday."
-# f5t2 = "She went to the shops yesterday."
+m4t2 = "The passport says the traveller is male."
+f4t2 = "The passport says the traveller is female."
 
-# m6t2 = "The wolf was hungry, so it ate him."
-# f6t2 = "The wolf was hungry, so it ate her."
+m5t2 = "He went to the shops yesterday."
+f5t2 = "She went to the shops yesterday."
 
-# m7t2 = "The teacher was grading the class, and asked Adam to see his work."
-# f7t2 = "The teacher was grading the class, and asked Betty to see her work."
+m6t2 = "The wolf was hungry, so it ate him."
+f6t2 = "The wolf was hungry, so it ate her."
 
-# m8t2 = "You must act proper in order to be considered a gentleman."
-# f8t2 = "You must act proper in order to be considered a lady."
+m7t2 = "The teacher was grading the class, and asked Adam to see his work."
+f7t2 = "The teacher was grading the class, and asked Betty to see her work."
+
+m8t2 = "You must act proper in order to be considered a gentleman."
+f8t2 = "You must act proper in order to be considered a lady."
 
 #endregion**# T2 Examples
 
 
-#region**# T2 Formatting Examples
+#region** T2 Formatting Examples
 
-# # test2 = [m0t2,f0t2,m1t2,f1t2,m2t2,f2t2,m3t2,f3t2,m4t2,f4t2,m5t2,f5t2,m6t2,f6t2,m7t2,f7t2,m9t2,f9t2]
-# #? Setting this for ease of testing before and after
-# test2 = [
-# 	m0t2,f0t2,f0t2,
-# 	m1t2,f1t2,f1t2,
-# 	m2t2,f2t2,f2t2,
-# 	m3t2,f3t2,f3t2,
-# 	m4t2,f4t2,f4t2,
-# 	m5t2,f5t2,f5t2,
-# 	m6t2,f6t2,f6t2,
-# 	m7t2,f7t2,f7t2,
-# 	m8t2,f8t2,f8t2]
+# test2 = [m0t2,f0t2,m1t2,f1t2,m2t2,f2t2,m3t2,f3t2,m4t2,f4t2,m5t2,f5t2,m6t2,f6t2,m7t2,f7t2,m9t2,f9t2]
+#? Setting this for ease of testing before and after
+test2 = [
+	m0t2,f0t2,f0t2,
+	m1t2,f1t2,f1t2,
+	m2t2,f2t2,f2t2,
+	m3t2,f3t2,f3t2,
+	m4t2,f4t2,f4t2,
+	m5t2,f5t2,f5t2,
+	m6t2,f6t2,f6t2,
+	m7t2,f7t2,f7t2,
+	m8t2,f8t2,f8t2]
 
-#endregion**# T2 Formatting Examples
+#endregion** T2 Formatting Examples
 
-#endregion*# T2: Contrasting pairs for gender
+
+
+#endregion* T2: Contrasting pairs for gender
 #########################################
 #region*# T3: Global Toy Inputs
 
@@ -632,41 +641,49 @@ with open(mact_p,"rb") as f:
 #endregion# Test inputs
 
 
-#region curr T5: Testing batches, no steering.
+#region TODO T5: Testing batches, no steering.
 
-bat = next(diter)
-# batch = next(diter)
+# bat = next(diter)
+# # batch = next(diter)
 
-#? Doing two comparisons, one going raw, the other with recon.
-nbat = {}
-for i in bat.keys():
-	nbat['input_ids'] = torch.cat([bat['input_ids'],bat['input_ids']])
-	nbat['labels'] = torch.cat([bat['labels'],bat['labels']])
-	nbat['attention_mask'] = torch.cat([bat['attention_mask'],bat['attention_mask']])
-	nbat['token_type_ids'] = torch.cat([bat['token_type_ids'],bat['token_type_ids']])
+# #? Doing two comparisons, one going raw, the other with recon.
+# nbat = {}
+# for i in bat.keys():
+# 	nbat['input_ids'] = torch.cat([bat['input_ids'],bat['input_ids']])
+# 	nbat['labels'] = torch.cat([bat['labels'],bat['labels']])
+# 	nbat['attention_mask'] = torch.cat([bat['attention_mask'],bat['attention_mask']])
+# 	nbat['token_type_ids'] = torch.cat([bat['token_type_ids'],bat['token_type_ids']])
 
 
 #? Fron 18.11.25, we're doing this automatically in ActDataset.
 # inputs = {"input_ids":nbat[0].type(torch.int64).to(device),"token_type_ids":token_type_ids,"attention_mask":nbat[1]}
 
-#endregion curr T5: Testing batches/recons - no steering.
+#endregion TODO T5: Testing batches/recons - no steering.
 
 
 #endregion Input Select
 
 
 
-#region Main Steering
+#region Steering
 
 #? Make sure to do a .clone, otherwise the .saves get executed at the same time at the end.
 
 #region* Fixing "inputs", no labels!
 #? This doesn't work because 
 # inputs = nbat
-trace_inputs = {k: v for k, v in nbat.items() if k != "labels"}
-batch_labels = nbat["labels"].to(device)
+# trace_inputs = {k: v for k, v in nbat.items() if k != "labels"}
+# batch_labels = nbat["labels"].to(device)
 
 #endregion* Fixing "inputs", no labels!
+
+
+#region* Testing inputs
+
+trace_inputs = test2
+
+#endregion* Testing inputs
+
 
 with torch.inference_mode():
 	with model.trace(trace_inputs) as tracer:
@@ -676,8 +693,10 @@ with torch.inference_mode():
 		no_sae = acts[:batch_size]
 		to_sae = acts[batch_size:]
 		
-		#Into the steerer
+		#? Into the steerer
 		sae_hidden = model.ae6.encode(to_sae)
+
+		sae_hidsav = sae_hidden.out.save() #TODO Or is it out.save()
 
 		#region# Steer testing sae_hidden
 
@@ -794,7 +813,7 @@ with torch.inference_mode():
 
 		#endregion
 
-		#Out of the steerer
+		#? Out of the steerer
 		recons = model.ae6.decode(sae_hidden)
 
 
@@ -808,23 +827,23 @@ with torch.inference_mode():
 		l11 = submodule_ref_last.nns_output.save()
 
 
-#endregion
+#endregion Steering
 
 
 
 #region Main Analysis
 
 
+
 if (tok_type == "cls"):
 	fin_mean = finl[0].to(device,non_blocking=True)
-	pass
-
-
 elif (tok_type == "pool"):
 	fin_mean = torch.mean(l11[0],dim=1) #.to(device,non_blocking=True)
-	pass
+
 
 out11 = l11[0]
+
+
 
 
 #region curr Analysing via Classifier
@@ -833,30 +852,30 @@ out11 = l11[0]
 
 with torch.inference_mode():
 
+	#region*# Testing pooled! (Works)
+	
+	# control  = fin_mean[:batch_size]
+	# reconed = fin_mean[batch_size:]
+
+	# control_classed = classhead(control)
+	# reconed_classed = classhead(reconed)
+
+	# A = control_classed["logits"]
+	# B = reconed_classed["logits"]
 
 
-	control  = fin_mean[:batch_size]
-	reconed = fin_mean[batch_size:]
-
-	control_classed = classhead(control)
-	reconed_classed = classhead(reconed)
-
-	A = control_classed["logits"]
-	B = reconed_classed["logits"]
-
-
-
-
+	#region** Helper funcs
+	
 	#Aux function to help with printing
 	def p(i="n"):
 
-		if(i == "n"):
+		if(i == "n"): #Default print all
 			print(A)
 			print("#"*100)
 			print(B)
 			print("#"*100)
 		
-		else:
+		else: #Print individual, put in loop to compare directly
 			print(A[i])
 			print("#"*10)
 			print(B[i])
@@ -865,9 +884,177 @@ with torch.inference_mode():
 		pass
 
 
+	def ret_tens_vis(tensor_data, name):
+		"""
+		Visualizes a torch.Tensor of shape [70, 1] as a Plotly bar chart.
+		
+		Args:
+			tensor_data (torch.Tensor): Input tensor of shape [70, 1]
+		"""
+		# 1. Detach from graph (if necessary), move to CPU, convert to numpy, and flatten
+		# This ensures the code works for tensors on GPU or with gradients
+		data = tensor_data.detach().cpu().numpy().flatten()
+		
+		# 2. Create the bar chart
+		fig = px.bar(
+			x=range(len(data)), 
+			y=data, 
+			labels={'x': 'Index', 'y': 'Value'},
+			title=f"Visualization for {name}"
+		)
+		
+		# 3. Show the interactive plot
+		# fig.show()
+		return fig
+
+	#endregion* Helper funcs
+
+
+	# print("STOP")
+	# print("STOP")
+
+	#endregion*# Testing pooled! (Works)
+
+
+	#region*# Testing unpooled.
+	
+
+	#region** Helper function
+
+	def full_act_compare(control, reconstruction):
+
+		N, D = control.shape
+		
+		# --- 1. Compute Metrics ---
+		# We compute cosine similarity for every pair [i]
+		cosine_sims = []
+		
+		print("Computing similarities...")
+		# using tqdm as requested for loops
+		for i in tqdm(range(N), desc="Processing Batch"):
+			c_vec = control[i].unsqueeze(0)
+			r_vec = reconstruction[i].unsqueeze(0)
+			sim = F.cosine_similarity(c_vec, r_vec)
+			cosine_sims.append(sim.item())
+			
+		cosine_sims = np.array(cosine_sims)
+		
+		# --- 2. Compute Similarity Matrix (Subset) ---
+		# For the heatmap, we use a subset to keep the webGL rendering smooth.
+		# We visualize the first 50 samples to check alignment.
+		subset_size = min(50, N)
+		
+		# Normalize vectors to get cosine similarity via dot product
+		c_norm = F.normalize(control[:subset_size], p=2, dim=1)
+		r_norm = F.normalize(reconstruction[:subset_size], p=2, dim=1)
+		
+		# Matrix multiplication: [Subset, D] @ [D, Subset] -> [Subset, Subset]
+		# Range is -1 to 1
+		similarity_matrix = torch.mm(c_norm, r_norm.t()).detach().cpu().numpy()
+
+		# --- 3. Build Plotly Figure ---
+		fig = make_subplots(
+			rows=1, cols=2,
+			column_widths=[0.4, 0.6],
+			subplot_titles=(
+				f"Distribution of Similarity<br>(Mean: {cosine_sims.mean():.3f})", 
+				f"Alignment Matrix (First {subset_size} samples)"
+			)
+		)
+
+		# Plot A: Histogram
+		fig.add_trace(
+			go.Histogram(
+				x=cosine_sims,
+				nbinsx=40,
+				marker_color='#636EFA',
+				name='Sim Distribution',
+				hovertemplate='Similarity: %{x:.2f}<br>Count: %{y}<extra></extra>'
+			),
+			row=1, col=1
+		)
+
+		# Add a vertical line for the mean
+		fig.add_vline(
+			x=cosine_sims.mean(), 
+			line_width=3, 
+			line_dash="dash", 
+			line_color="red", 
+			annotation_text="Mean", 
+			row=1, col=1
+		)
+
+		# Plot B: Heatmap
+		# We want the diagonal to be bright yellow (1.0) and off-diagonal to be dark (0.0 or negative)
+		fig.add_trace(
+			go.Heatmap(
+				z=similarity_matrix,
+				x=list(range(subset_size)),
+				y=list(range(subset_size)),
+				colorscale='Viridis',
+				zmin=0, zmax=1,  # Clamping visual range for better contrast
+				name='Alignment',
+				hovertemplate='Control Idx: %{y}<br>Recon Idx: %{x}<br>Sim: %{z:.3f}<extra></extra>'
+			),
+			row=1, col=2
+		)
+
+		# Layout Polish
+		fig.update_layout(
+			title_text="Control vs. Reconstruction Analysis",
+			height=600,
+			showlegend=False,
+			template="plotly_white"
+		)
+		
+		# Label axes
+		fig.update_xaxes(title_text="Cosine Similarity", row=1, col=1)
+		fig.update_yaxes(title_text="Count", row=1, col=1)
+		fig.update_xaxes(title_text="Reconstruction Index", row=1, col=2)
+		fig.update_yaxes(title_text="Control Index", row=1, col=2)
+
+		# fig.show()
+		
+		return fig
+
+	#endregion** Helper function
+
+	# cont = out11[:batch_size]
+	# recon = out11[batch_size:]
+
+	# #Create a dictionary for comparing the figures
+	# w = {f"{i}": full_act_compare(cont[i],recon[i]) for i in range(batch_size)}
+
+
+
+	# print("STOP")
+	# print("STOP")
+	
+	#endregion*# Testing unpooled.
+
+
+	#region* Finding gender related feats
+	
+
+	
+
+
 	print("STOP")
 	print("STOP")
+	#endregion* Finding gender related feats
+
+
+
+
 #endregion curr Analysing via Classifier
+
+
+
+
+
+
+
+
 
 
 
@@ -1050,13 +1237,6 @@ with torch.inference_mode():
 
 #endregion
 #endregion# Testing Analysis
-
-
-#region Unused
-
-
-
-#endregion Unused
 
 
 

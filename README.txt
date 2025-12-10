@@ -38,7 +38,13 @@ mact3.py
 
 
 mact_analysis.py
+			Now in old pys, replaced by seek_feat.py
 	Runs the output from mact_trainer, letting us see and analyise the meaning of different activations
+
+seek_feat.py
+	Replaces mact_analysis, combined with show_tens
+	Acts as the new dashboard
+
 
 
 SAE_trainer.py

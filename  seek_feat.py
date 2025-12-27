@@ -1,5 +1,6 @@
 import torch
 import pickle
+from tqdm import tqdm
 import numpy as np
 import plotly.graph_objects as go
 from nnsight import LanguageModel
@@ -10,7 +11,7 @@ import random as rand
 
 #region Paths
 
-froot_p = "/home/strah/Documents/pys/blober/features/"
+froot_p = "/home/strah/Documents/Work_related/pys/blober/features/"
 
 #endregion Paths
 
@@ -54,6 +55,7 @@ def recreate_feat_dist(sf_inp: tuple):
 	ret = torch.zeros([6144])
 	ret[idxs] = vals
 	return ret
+
 
 
 #Takes a recreated feature tensor, and idx of feat of interest, and shows distribution
@@ -110,6 +112,7 @@ def hist(tens: torch.Tensor, idx: int):
     )
 
     fig.show()
+
 
 
 #Like show_hist, but only shows the non-zero entries.
@@ -193,25 +196,22 @@ def active_hist(tens: torch.Tensor, idx: int, show=False, ret=True):
         return fig
 
 
+
 #Prints one example; Used in fprint_examples as a helper
 def _fprint_example(ex,minimal=False):
 
     if(minimal):
-        print("-"*50)
         print(f"Token ID: {ex['token_id']} ({tok.decode(ex['token_id'])})")
-        print("-"*50)
         print(f"Feature value: {ex['value']}")
+        print("="*50)
         print("="*50)
     
     else:
         print(f"Feature value: {ex['value']}")
-        print("-"*50)
         print(f"Context: {ex['context']}")
-        print("-"*50)
         print(f"Token ID: {ex['token_id']} ({tok.decode(ex['token_id'])})")
-        print("-"*50)
         print(f"Step: {ex['step']}")
-        print("-"*50)
+        print("="*50)
         print("="*50)
 
 
@@ -260,7 +260,9 @@ def fprint_examples(feat, ret=False,minimal=False):
 
     strata = [2,1,0]
 
+    print("="*50)
     for i in range(len(exs)):
+        print("-*" * 25)
         for ex,ind in zip(exs[i],indies[i]):
             print(f"Selected example: {strata[i]}_{ind}")
             _fprint_example(ex,minimal=minimal)
@@ -268,6 +270,8 @@ def fprint_examples(feat, ret=False,minimal=False):
 
     if(ret == True):
         return exs,indies
+
+
 
 def get_hist(feat:int, ex):
     resto_dist = recreate_feat_dist(ex["sparse_features"])
@@ -283,15 +287,50 @@ def get_hist(feat:int, ex):
 
 #region Main
 
-feat_num = 1816
+#curr Most common activations in gender selection
+feats_idxs = [
+    1858, # No immediately understandable feature. Activates highly, so probs important
+    1562, # H - wife,her,daughter,marriage,le; M - Marriage, ##enne, lanka, child, family; L - app, him, bc, app
+    575, # H - ” mostly, decision?; M - Refugee, applicant, of + noise; L - ”,pursuant
+    2273, #! Errored out need to manually look
+    4680, #H - Citizen,(,the,la,can,); M- ],refugee,decision,th?,minister; L- november,file, er, ra
+    904, #! Errored out.
+    5715, # H- xx; M- term, id, for, ##xx; L- the, decisio...n, ',', in
+    5258, #H- ”, ##r/##x; M- translation, 3, audience, sons, L- no,2,dependent,##xx
+    3306, #H- and, or;M- by,),of,(,',';L-file,of,examined,refugee
+    5879,#H- tag, k, da, ant; M- app,refused,fa,reasons,january,after; L- passport, de, division, private, both
+    6002,#H- person, statement,decision,child,decision,refugee,member; M- relationship,act,application,allegations; L- appeal,vo,audience,(,to,tb
+    445,#H-proceeding;M-##dm,humanitarian,',',hearing,##e,to,sponsorship;L-in,(,and,sai,e,the,de
+    1108,#H-saint,freedom,women,god,safety*3;M-convention,returned,gee,th,app,slater,;L-##x,er,##o,decision,for,/
+    1302,#H-“,##rga,##d,conference,complaint,fact;M-citizen,scheduling,k,mail,old,application,stating;L-father,##ellant,##pp,allow,represent,minister,tal
+    3881,#H-person,##ant,##ellant,person,officer;M-##ellant,##nt,counsel,s,is,’;L-her,is,(,solicitor,',',2,app
+    3150,#H-##ster,##er,##ers,dickens;M-##ough,##nt,slater,act,[,minister,disease;L-s,##xx*3..
+    705,#! Errored
+    2669,#H-united,us,hindu,states,you,canadian,ta;M-##oni,la,.,ile,r,canada;L-de,##ellant,##ant,22,77,##xx
+    1242,#H-new,born,became,arrived,birth;M-##bu,permanent,confirmed,n,no,##tal;L-),your,outside,##xx,and
+    4803,#H-minister,barrister,friend,##ellant,consultants,counsel;M-##ent,client,member,app,division,anti,comission;L-##r,##d,heard,app,l,(,address
+    2952,#! Err
+    6124,#H-00,##x,*3,converted;M-06,xx,2011,introduction;L-canada,share,allegedly,...
+    4668,#H-out,with,','*4,and;M-',',form*2,that,',the;L-[,to,##xx,of,s,.
+    3603,#H-s*2,designated*2 s;M- date,##sal,referred,##l,date;L-1 2,[sep],de,purposes
+    359, #H- ',';M- ],.,no,(,s,file,old;L-##ellant,##s,ir,canada,),
+    2819,#H-’,of,”,s;M-For,whom,are,to,(,set;L-age,in,officer,(
+    3121,#H-allegations,whose,adopted,allegations,and;M-.,2021,(,de,(,##ug,
+    997,#H-',',and,.,and; M-conviction,##ant,was,l,##l,##x;L-to,of,audience,e,7th,##xx,and
+    3348,#H-app,off,suffered,stepgather,basis,of,##ig;M-decision,rue,claim,),does,tr,xx;L-t he,##ellant,application,des,e,de,##xx
+    3709,#H-##xx;M-app,app,2007,e,di,application,appeal;L-tribunal,protection,refusal,##re,family
+]
 
-#Load
-feat_p = froot_p + f"feature_{feat_num}.pkl"
 
-with open(feat_p,"rb") as f:
-    feat = pickle.load(f)
+feats = []
 
-exs = feat["examples"]
+for idx in tqdm(feats_idxs,desc="Loading feature files"):
+    fp = froot_p + f"feature_{idx}.pkl"
+
+    with open(fp,"rb") as f:
+        feats.append(pickle.load(f))
+
+
 
 # k = fprint_examples(feat,ret=True,minimal=True)
 

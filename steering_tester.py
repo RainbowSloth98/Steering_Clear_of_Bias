@@ -9,6 +9,7 @@ import torch.nn as nn
 import pickle
 import pandas as pd
 from collections import namedtuple
+from collections import Counter
 from functools import partial
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
@@ -233,6 +234,151 @@ classhead.eval()
 
 
 #region Funcs
+
+
+
+#Takes a recreated feature tensor, and idx of feat of interest, and shows distribution
+def hist(tens: torch.Tensor, idx: int, show=False, ret=True):
+	"""
+	Creates a Plotly bar chart of SAE activations.
+	
+	Args:
+		tens (torch.Tensor): Activation tensor of size [6144].
+		idx (int): The index of the main feature to highlight.
+	"""
+	# Ensure tensor is on CPU and numpy-compatible
+	data = tens.detach().cpu().numpy()
+	
+	# 1. Define Base Colors (Landscape)
+	# specific hex for light grey ensures it fades into background
+	colors = np.array(['#E2E2E2'] * len(data)) 
+	
+	# 2. Identify Top 5 Co-activations (excluding the target idx)
+	# We set the target idx to -infinity temporarily so it doesn't get picked as a co-activation
+	masked_data = data.copy()
+	masked_data[idx] = -np.inf
+	
+	# Get indices of the top 5 highest values from the rest
+	top_5_indices = np.argsort(masked_data)[-5:]
+	
+	# Highlight Co-activations (e.g., in Blue)
+	colors[top_5_indices] = '#636EFA' 
+	
+	# 3. Highlight the Selected Target Feature (e.g., in Red)
+	colors[idx] = '#EF553B'
+
+	# Create the Bar Chart
+	fig = go.Figure()
+	
+	fig.add_trace(go.Bar(
+		x=np.arange(len(data)),
+		y=data,
+		marker_color=colors,
+		# Remove borders on bars for cleaner look at high density
+		marker_line_width=0, 
+		hoverinfo='x+y',
+		name='Activations'
+	))
+
+	# Layout for the "Dashboard" feel
+	fig.update_layout(
+		title=f"SAE Feature Activations (Target: {idx})",
+		xaxis_title="Feature Index",
+		yaxis_title="Activation Value",
+		template="plotly_white",
+		bargap=0, # Removes gaps to show the 'landscape' density better
+		showlegend=False
+	)
+
+	if ((not show) and (not ret)):
+		raise Exception("At least one of show or ret need to be true")
+
+	if (show):
+		fig.show()
+
+	if ret:
+		return fig
+
+
+#Like show_hist, but only shows the non-zero entries.
+def active_hist(tens: torch.Tensor, idx: int, show=False, ret=True):
+	"""
+	Displays only non-zero activations, compressed side-by-side.
+	Preserves original indices in hover data.
+	"""
+	# 1. Filter Data: Keep only non-zero entries
+	# We maintain the tensor on CPU/Numpy for easy indexing
+	full_data = tens.detach().cpu().numpy()
+	
+	# Get indices where activation > 0
+	# nonzero returns a tuple of arrays, we want the first one
+	nz_indices = np.nonzero(full_data)[0] 
+	nz_values = full_data[nz_indices]
+	
+	# If for some reason the target idx isn't in the non-zero list 
+	# (e.g. looking at a dead neuron), we force include it or handle gracefully.
+	# Here we assume idx is always active as per your "top entry" description.
+	
+	# 2. Setup Colors
+	# Default color for all active features
+	colors = np.array(['#B4B4B4'] * len(nz_indices)) # Slightly darker grey for visibility
+	
+	# Find where the target 'idx' is located in our new compressed 'nz_indices' array
+	# np.where returns a tuple, we take the first element (array of indices) then the first item
+	target_loc_array = np.where(nz_indices == idx)[0]
+	
+	if len(target_loc_array) > 0:
+		target_pos = target_loc_array[0]
+		colors[target_pos] = '#EF553B' # Red for target
+		
+		# 3. Find Top 5 Co-activations
+		# Create a masked copy of values to find top 5 (excluding the target)
+		masked_values = nz_values.copy()
+		masked_values[target_pos] = -np.inf
+		
+		# Get indices of top 5 values in the *compressed* array
+		if len(masked_values) > 1: # Only look for co-activations if there are other features
+			# argsort sorts ascending, so we take the last 5
+			top_5_local_indices = np.argsort(masked_values)[-5:]
+			colors[top_5_local_indices] = '#636EFA' # Blue for co-activations
+	
+	# 4. Create Plot
+	fig = go.Figure()
+	
+	fig.add_trace(go.Bar(
+		# X is just 0, 1, 2... N (compressed sequence)
+		x=np.arange(len(nz_indices)), 
+		y=nz_values,
+		marker_color=colors,
+		marker_line_width=0,
+		
+		# 5. Inject the ORIGINAL Feature Indices into the hover data
+		customdata=nz_indices,
+		hovertemplate=(
+			"<b>Feature Index: %{customdata}</b><br>" +
+			"Activation: %{y:.4f}<br>" +
+			"<extra></extra>" # Removes the secondary box named 'trace 0'
+		)
+	))
+
+	fig.update_layout(
+		title=f"Active Features for  (Target: {idx}) - Showing {len(nz_indices)}/{len(full_data)}",
+		xaxis_title="Active Features (Ordered by Index)",
+		yaxis_title="Activation Value",
+		template="plotly_white",
+		bargap=0.1, # Slight gap to distinguish distinct bars
+		showlegend=False
+	)
+
+
+	if ((not show) and (not ret)):
+		raise Exception("At least one of show or ret need to be true")
+
+	if (show):
+		fig.show()
+
+	if ret:
+		return fig
 
 
 #Generator for creating overlapping chunks
@@ -630,11 +776,11 @@ test2 = [
 #########################################
 #region*# Test input preproceesing
 
-# sentences = test2 #! Change here for different tests (test1/2/3)
-# encs = torch.Tensor([tok.encode(s)+[0]*(512-len(tok.encode(s))) for s in sentences]).to(torch.int64)
-# attens = (encs != 0).to(torch.long)
-# ttids = torch.zeros(encs.size()).to(torch.long)
-# inputs = {"input_ids":encs,"token_type_ids":ttids,"attention_mask":attens}
+sentences = test2 #! Change here for different tests (test1/2/3)
+encs = torch.Tensor([tok.encode(s)+[0]*(512-len(tok.encode(s))) for s in sentences]).to(torch.int64)
+attens = (encs != 0).to(torch.long)
+ttids = torch.zeros(encs.size()).to(torch.long)
+trace_inputs = {"input_ids":encs,"token_type_ids":ttids,"attention_mask":attens}
 
 #endregion*# Test input preproceesing
 #########################################
@@ -678,25 +824,20 @@ test2 = [
 #endregion* Fixing "inputs", no labels!
 
 
-#region* Testing inputs
-
-trace_inputs = test2
-
-#endregion* Testing inputs
-
 
 with torch.inference_mode():
 	with model.trace(trace_inputs) as tracer:
 	
 		acts = submodule_ref6.nns_output[0]
 
-		no_sae = acts[:batch_size]
-		to_sae = acts[batch_size:]
+		to_sae = acts
+		# no_sae = acts[:batch_size] #? Part of no steer / recon test T6
+		# to_sae = acts[batch_size:]
 		
 		#? Into the steerer
 		sae_hidden = model.ae6.encode(to_sae)
 
-		sae_hidsav = sae_hidden.out.save() #TODO Or is it out.save()
+		sae_hidsav = sae_hidden.clone().to("cpu").save()
 
 		#region# Steer testing sae_hidden
 
@@ -817,7 +958,9 @@ with torch.inference_mode():
 		recons = model.ae6.decode(sae_hidden)
 
 
-		outs = torch.cat([no_sae,recons])
+		# outs = torch.cat([no_sae,recons]) #? Part of no steer / recon test T6
+
+		outs = recons
 
 		submodule_ref7.input = outs
 
@@ -834,20 +977,22 @@ with torch.inference_mode():
 #region Main Analysis
 
 
+#region* Post-Processing
+
+
+out11 = l11[0] #? Unprocessed outputs
+
 
 if (tok_type == "cls"):
 	fin_mean = finl[0].to(device,non_blocking=True)
 elif (tok_type == "pool"):
 	fin_mean = torch.mean(l11[0],dim=1) #.to(device,non_blocking=True)
 
-
-out11 = l11[0]
-
+#endregion* Post-Processing
 
 
 
-#region curr Analysing via Classifier
-#? Import and use the classifier to see how our steering methods impact 
+#region curr Analysing BTK
 
 
 with torch.inference_mode():
@@ -867,21 +1012,21 @@ with torch.inference_mode():
 	#region** Helper funcs
 	
 	#Aux function to help with printing
-	def p(i="n"):
+	# def p(i="n"):
 
-		if(i == "n"): #Default print all
-			print(A)
-			print("#"*100)
-			print(B)
-			print("#"*100)
+	# 	if(i == "n"): #Default print all
+	# 		print(A)
+	# 		print("#"*100)
+	# 		print(B)
+	# 		print("#"*100)
 		
-		else: #Print individual, put in loop to compare directly
-			print(A[i])
-			print("#"*10)
-			print(B[i])
-			print("#"*10)
+	# 	else: #Print individual, put in loop to compare directly
+	# 		print(A[i])
+	# 		print("#"*10)
+	# 		print(B[i])
+	# 		print("#"*10)
 
-		pass
+	# 	pass
 
 
 	def ret_tens_vis(tensor_data, name):
@@ -916,7 +1061,7 @@ with torch.inference_mode():
 	#endregion*# Testing pooled! (Works)
 
 
-	#region*# Testing unpooled.
+	#region*# Testing unpooled. (Works)
 	
 
 	#region** Helper function
@@ -1036,26 +1181,77 @@ with torch.inference_mode():
 	#region* Finding gender related feats
 	
 
+
+	#Mask to remove the duplicate sentences from the input; Reducing 27 -> 18
+	m1  = [
+		True,True,False,
+		True,True,False,
+		True,True,False,
+		True,True,False,
+		True,True,False,
+		True,True,False,
+		True,True,False,
+		True,True,False,
+		True,True,False,]
+
+	#Mask for getting the specific gendered words
+	m2 = [
+		3,3, # male,female
+		5,5, # Danny, Ella
+		5,5, # Ollie, Jenny
+		5,5, # James, Juliet
+		7,7, # male , female (last word)
+		1,1, # He, She
+		9,9, # him, her
+		10,10, # his, her
+		11,11, # gentleman, lady
+		]
+
+	t = sae_hidsav[m1]
+	gends = t[:,m2,:]
+
+	#sae_hidsav
+	it = list(zip(range(18),m2))
+
+
+	#region** Helper F
+	
+	def get_feat_from_gends(feat, gends):
+
+		vals = []
+		it = list(zip(range(18),m2))
+		
+		for i,w in it:
+			vals.append(gends[i][w][feat])
+
+		return vals
+	
+	#endregion** Helper F
+
+
+	all_figs = []
+	topks = []
+
+	for i,w in it:
+		all_figs.append(hist(gends[i][w],0))
+		topks.append(gends[i][w].topk(15))
+
+	c = Counter()
+
+	for tk in topks:
+		c.update(tk[1].tolist())
 	
 
 
 	print("STOP")
 	print("STOP")
+
 	#endregion* Finding gender related feats
 
 
 
 
-#endregion curr Analysing via Classifier
-
-
-
-
-
-
-
-
-
+#endregion curr Analysing BTK
 
 
 

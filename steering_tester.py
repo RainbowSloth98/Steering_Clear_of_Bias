@@ -1066,101 +1066,103 @@ with torch.inference_mode():
 
 	#region** Helper function
 
-	def full_act_compare(control, reconstruction):
 
-		N, D = control.shape
+	# def full_act_compare(control, reconstruction):
+
+	# 	N, D = control.shape
 		
-		# --- 1. Compute Metrics ---
-		# We compute cosine similarity for every pair [i]
-		cosine_sims = []
+	# 	# --- 1. Compute Metrics ---
+	# 	# We compute cosine similarity for every pair [i]
+	# 	cosine_sims = []
 		
-		print("Computing similarities...")
-		# using tqdm as requested for loops
-		for i in tqdm(range(N), desc="Processing Batch"):
-			c_vec = control[i].unsqueeze(0)
-			r_vec = reconstruction[i].unsqueeze(0)
-			sim = F.cosine_similarity(c_vec, r_vec)
-			cosine_sims.append(sim.item())
+	# 	print("Computing similarities...")
+	# 	# using tqdm as requested for loops
+	# 	for i in tqdm(range(N), desc="Processing Batch"):
+	# 		c_vec = control[i].unsqueeze(0)
+	# 		r_vec = reconstruction[i].unsqueeze(0)
+	# 		sim = F.cosine_similarity(c_vec, r_vec)
+	# 		cosine_sims.append(sim.item())
 			
-		cosine_sims = np.array(cosine_sims)
+	# 	cosine_sims = np.array(cosine_sims)
 		
-		# --- 2. Compute Similarity Matrix (Subset) ---
-		# For the heatmap, we use a subset to keep the webGL rendering smooth.
-		# We visualize the first 50 samples to check alignment.
-		subset_size = min(50, N)
+	# 	# --- 2. Compute Similarity Matrix (Subset) ---
+	# 	# For the heatmap, we use a subset to keep the webGL rendering smooth.
+	# 	# We visualize the first 50 samples to check alignment.
+	# 	subset_size = min(50, N)
 		
-		# Normalize vectors to get cosine similarity via dot product
-		c_norm = F.normalize(control[:subset_size], p=2, dim=1)
-		r_norm = F.normalize(reconstruction[:subset_size], p=2, dim=1)
+	# 	# Normalize vectors to get cosine similarity via dot product
+	# 	c_norm = F.normalize(control[:subset_size], p=2, dim=1)
+	# 	r_norm = F.normalize(reconstruction[:subset_size], p=2, dim=1)
 		
-		# Matrix multiplication: [Subset, D] @ [D, Subset] -> [Subset, Subset]
-		# Range is -1 to 1
-		similarity_matrix = torch.mm(c_norm, r_norm.t()).detach().cpu().numpy()
+	# 	# Matrix multiplication: [Subset, D] @ [D, Subset] -> [Subset, Subset]
+	# 	# Range is -1 to 1
+	# 	similarity_matrix = torch.mm(c_norm, r_norm.t()).detach().cpu().numpy()
 
-		# --- 3. Build Plotly Figure ---
-		fig = make_subplots(
-			rows=1, cols=2,
-			column_widths=[0.4, 0.6],
-			subplot_titles=(
-				f"Distribution of Similarity<br>(Mean: {cosine_sims.mean():.3f})", 
-				f"Alignment Matrix (First {subset_size} samples)"
-			)
-		)
+	# 	# --- 3. Build Plotly Figure ---
+	# 	fig = make_subplots(
+	# 		rows=1, cols=2,
+	# 		column_widths=[0.4, 0.6],
+	# 		subplot_titles=(
+	# 			f"Distribution of Similarity<br>(Mean: {cosine_sims.mean():.3f})", 
+	# 			f"Alignment Matrix (First {subset_size} samples)"
+	# 		)
+	# 	)
 
-		# Plot A: Histogram
-		fig.add_trace(
-			go.Histogram(
-				x=cosine_sims,
-				nbinsx=40,
-				marker_color='#636EFA',
-				name='Sim Distribution',
-				hovertemplate='Similarity: %{x:.2f}<br>Count: %{y}<extra></extra>'
-			),
-			row=1, col=1
-		)
+	# 	# Plot A: Histogram
+	# 	fig.add_trace(
+	# 		go.Histogram(
+	# 			x=cosine_sims,
+	# 			nbinsx=40,
+	# 			marker_color='#636EFA',
+	# 			name='Sim Distribution',
+	# 			hovertemplate='Similarity: %{x:.2f}<br>Count: %{y}<extra></extra>'
+	# 		),
+	# 		row=1, col=1
+	# 	)
 
-		# Add a vertical line for the mean
-		fig.add_vline(
-			x=cosine_sims.mean(), 
-			line_width=3, 
-			line_dash="dash", 
-			line_color="red", 
-			annotation_text="Mean", 
-			row=1, col=1
-		)
+	# 	# Add a vertical line for the mean
+	# 	fig.add_vline(
+	# 		x=cosine_sims.mean(), 
+	# 		line_width=3, 
+	# 		line_dash="dash", 
+	# 		line_color="red", 
+	# 		annotation_text="Mean", 
+	# 		row=1, col=1
+	# 	)
 
-		# Plot B: Heatmap
-		# We want the diagonal to be bright yellow (1.0) and off-diagonal to be dark (0.0 or negative)
-		fig.add_trace(
-			go.Heatmap(
-				z=similarity_matrix,
-				x=list(range(subset_size)),
-				y=list(range(subset_size)),
-				colorscale='Viridis',
-				zmin=0, zmax=1,  # Clamping visual range for better contrast
-				name='Alignment',
-				hovertemplate='Control Idx: %{y}<br>Recon Idx: %{x}<br>Sim: %{z:.3f}<extra></extra>'
-			),
-			row=1, col=2
-		)
+	# 	# Plot B: Heatmap
+	# 	# We want the diagonal to be bright yellow (1.0) and off-diagonal to be dark (0.0 or negative)
+	# 	fig.add_trace(
+	# 		go.Heatmap(
+	# 			z=similarity_matrix,
+	# 			x=list(range(subset_size)),
+	# 			y=list(range(subset_size)),
+	# 			colorscale='Viridis',
+	# 			zmin=0, zmax=1,  # Clamping visual range for better contrast
+	# 			name='Alignment',
+	# 			hovertemplate='Control Idx: %{y}<br>Recon Idx: %{x}<br>Sim: %{z:.3f}<extra></extra>'
+	# 		),
+	# 		row=1, col=2
+	# 	)
 
-		# Layout Polish
-		fig.update_layout(
-			title_text="Control vs. Reconstruction Analysis",
-			height=600,
-			showlegend=False,
-			template="plotly_white"
-		)
+	# 	# Layout Polish
+	# 	fig.update_layout(
+	# 		title_text="Control vs. Reconstruction Analysis",
+	# 		height=600,
+	# 		showlegend=False,
+	# 		template="plotly_white"
+	# 	)
 		
-		# Label axes
-		fig.update_xaxes(title_text="Cosine Similarity", row=1, col=1)
-		fig.update_yaxes(title_text="Count", row=1, col=1)
-		fig.update_xaxes(title_text="Reconstruction Index", row=1, col=2)
-		fig.update_yaxes(title_text="Control Index", row=1, col=2)
+	# 	# Label axes
+	# 	fig.update_xaxes(title_text="Cosine Similarity", row=1, col=1)
+	# 	fig.update_yaxes(title_text="Count", row=1, col=1)
+	# 	fig.update_xaxes(title_text="Reconstruction Index", row=1, col=2)
+	# 	fig.update_yaxes(title_text="Control Index", row=1, col=2)
 
-		# fig.show()
+	# 	# fig.show()
 		
-		return fig
+	# 	return fig
+
 
 	#endregion** Helper function
 
@@ -1178,7 +1180,7 @@ with torch.inference_mode():
 	#endregion*# Testing unpooled.
 
 
-	#region* Finding gender related feats
+	#region* Finding gender related feats (not very efficient)
 	
 
 

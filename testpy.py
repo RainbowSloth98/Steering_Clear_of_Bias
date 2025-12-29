@@ -18,15 +18,23 @@ from nnsight import LanguageModel
 
 #region? Info
 
-#? Looking at the different versions of BTK SAEs to see which performed best.
+#* Looking at the different versions of BTK SAEs to see which performed best.
 	#* That would probably be the 144000 version, that has a a FVE of 0.9628
+
+#? Searching for gender features in 144k.
 
 #endregion? Info
 
 
+#region! Fix
+
+#TODO Takes far too long to load all the features. (even a subset)
+
+#endregion! Fix
+
+
 #region Classes and Objects
 
-StampedLog = namedtuple("StampedLog",["step","l0","l2","fve","auxk_loss","loss"])
 
 
 #endregion Classes and Objects
@@ -36,7 +44,8 @@ StampedLog = namedtuple("StampedLog",["step","l0","l2","fve","auxk_loss","loss"]
 #region Path and loading
 
 
-#region*# Test1
+
+#region*# T1: Looking through different BTK SAEs
 
 
 # tmap = {1:"10k",2:"30k",3:"60k",4:"150k"}
@@ -51,69 +60,38 @@ StampedLog = namedtuple("StampedLog",["step","l0","l2","fve","auxk_loss","loss"]
 # 		ldeds.append(pickle.load(f))
 
 
-#endregion*# Test 1
+#endregion*# T1: Looking through different BTK SAEs
 
-#TODO Fix errors
 
-#region* Region description
+
+#region* T2: Load feats to look for gender
 
 batch1 = list(range(3072))
 
 feats = []
 
-for ind in batch1:
-	p = f"/home/strah/Documents/Work_related/pys/blober/features/feature_{ind}.pkl"
+for ind in tqdm(batch1,desc="Loading feats..."):
+	p = f"/home/strah/Documents/Work_related/thon-of-py/blober/features/feature_{ind}.pkl"
 
 	if not (os.path.exists(p)):
 		pass
 	else:
-		
+		with open(p,"rb") as f:
+			feats.append(pickle.load(f))
 
 
 
-#endregion* Region description
+#endregion* T2: Load feats to look for gender
 
 
 
 
-#endregion paths
-
+#endregion Path and loading
 
 
 
 
 #region Main Test area
-
-
-
-#region*# Test1: INLP stuff
-
-
-# keys = []
-# exs = []
-
-# for i in range(4):
-# 	keys.append(sorted(list(ldeds[i].keys()))[-1])
-# 	exs.append(ldeds[i][keys[i]])
-
-
-# def p_inter(k = len(exs)):
-# 	for i in range(k):
-# 		print("For Example: " + tmap[i+1])
-# 		print("\tFve: "+str(exs[i].fve))
-# 		print("\tLoss: " + str(exs[i].loss))
-# 		print("#"*50)
-
-# def p_step(ex):
-# 	ks = list(ex.keys())
-# 	for i in range(len(ks)):
-# 		print("For step: " + str(ks[i]))
-# 		print("\tFve: "+str(ex[ks[i]].fve))
-# 		print("\tLoss: " + str(ex[ks[i]].loss))
-# 		print("#"*50)
-
-
-#endregion*# Test1: INLP stuff
 
 
 

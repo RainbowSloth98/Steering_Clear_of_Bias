@@ -99,10 +99,16 @@ for ind in tqdm(batch1,desc="Loading feats..."):
 
 
 
-
-
 print("STOP")
 print("STOP")
+
+
+#region*# Mini-notes
+
+#f["examples][2][example_idx]
+
+#endregion*# Mini-notes
+
 
 
 #endregion Main Test area

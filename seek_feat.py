@@ -120,7 +120,7 @@ def hist(tens: torch.Tensor, idx: int):
 
 
 #Like show_hist, but only shows the non-zero entries.
-def active_hist(tens: torch.Tensor, idx: int, show=False, ret=True):
+def active_hist(tens: torch.Tensor, idx: int, topk = 5, show=False, ret=True):
     """
     Displays only non-zero activations, compressed side-by-side.
     Preserves original indices in hover data.
@@ -158,8 +158,8 @@ def active_hist(tens: torch.Tensor, idx: int, show=False, ret=True):
         # Get indices of top 5 values in the *compressed* array
         if len(masked_values) > 1: # Only look for co-activations if there are other features
             # argsort sorts ascending, so we take the last 5
-            top_5_local_indices = np.argsort(masked_values)[-5:]
-            colors[top_5_local_indices] = '#636EFA' # Blue for co-activations
+            top_local_indices = np.argsort(masked_values)[-topk:]
+            colors[top_local_indices] = '#636EFA' # Blue for co-activations
     
     # 4. Create Plot
     fig = go.Figure()
@@ -197,7 +197,7 @@ def active_hist(tens: torch.Tensor, idx: int, show=False, ret=True):
         fig.show()
 
     if ret:
-        return fig
+        return fig,top_local_indices
 
 
 
@@ -225,22 +225,50 @@ def fprint_examples(feat, ret=False,minimal=False):
 
     rand.seed(42) #Set seed for reproducibility purposes
 
-    #Getting the indices
-    indi_sample_lows = rand.sample(range(len(feat["examples"][0])),7)
-    indi_sample_mids = rand.sample(range(len(feat["examples"][1])),7)
-    indi_sample_highs = rand.sample(range(len(feat["examples"][2])),7)
+    samp_init = 7
 
+    tosamp_highs = samp_init
+    tosamp_mids = samp_init
+    tosamp_lows = samp_init
+    
 
-    #Creating tuples of (example,index_within_original_strata)
-    lows = list(zip([feat["examples"][0][i] for i in indi_sample_lows],indi_sample_lows))
-    mids = list(zip([feat["examples"][1][i] for i in indi_sample_mids],indi_sample_mids))
-    highs = list(zip([feat["examples"][2][i] for i in indi_sample_highs],indi_sample_highs))
+    if(len(feat["examples"][2]) == 0):
+        s_highs = []
+    else:
+        if (len(feat["examples"][2]) < tosamp_highs):
+            tosamp_highs = len(feat["examples"][2])
 
+        indi_sample_highs = rand.sample(range(len(feat["examples"][2])),tosamp_highs)#Getting the indices
+        highs = list(zip([feat["examples"][2][i] for i in indi_sample_highs],indi_sample_highs))#Tupling (example,index_within_original_strata)
+        s_highs = sorted(highs,key= lambda x: x[0]["value"],reverse=True) #Sort them, keeping the indicies
 
-    #Sort them, keeping the indicies
-    s_lows = sorted(lows,key= lambda x: x[0]["value"],reverse=True)
-    s_mids = sorted(mids,key= lambda x: x[0]["value"],reverse=True)
-    s_highs = sorted(highs,key= lambda x: x[0]["value"],reverse=True)
+    #Do for mids too
+
+    if(len(feat["examples"][1]) == 0):
+        s_mids = []
+    else:
+
+        if (len(feat["examples"][1]) < tosamp_mids):
+            tosamp_mids = len(feat["examples"][1])
+
+        indi_sample_mids = rand.sample(range(len(feat["examples"][1])),tosamp_mids)
+        mids = list(zip([feat["examples"][1][i] for i in indi_sample_mids],indi_sample_mids))
+        s_mids = sorted(mids,key= lambda x: x[0]["value"],reverse=True)
+    
+    #Do for highs too
+
+    if(len(feat["examples"][0]) == 0):
+        s_lows = []
+    else:
+
+        if (len(feat["examples"][0]) < tosamp_lows):
+            tosamp_lows = len(feat["examples"][0])
+
+        indi_sample_lows = rand.sample(range(len(feat["examples"][0])),tosamp_lows)
+        lows = list(zip([feat["examples"][0][i] for i in indi_sample_lows],indi_sample_lows))
+        s_lows = sorted(lows,key= lambda x: x[0]["value"],reverse=True)
+    
+    
 
     ss = [s_highs,s_mids,s_lows]
     
@@ -357,30 +385,30 @@ pansec = inter_2_1.intersection(inter_1_0)
 
 check_feats = [
 
-    682, #0
-    2646,#1
-    2703,#2
-    4949,#3
-    1570,#4
-    5987,#5
-    3881,#6
-    4364,#7
-    4220,#8
-    1043,#9
-    2037,#10
-    2554,#11
-    5052,#12
-    2270,#13
-    5793,#14
-    5581,#15
-    4112,#16
-    2480,#17
-    4980,#18
-    3477,#19
-    503,#20
-    4249,#21
-    2746,#22
-    4572,#23
+    682, #0 Female Pronoun Feat
+    2646,#1 Pronouns (and quazi-pronouns) as grammatical objects; Compare with 4220, and 2037
+    2703,#2 First Person feature, mostly judge
+    4949,#3 Appositive feat; Clarifyication after "," or in brackets
+    1570,#4 General pronoun detector
+    5987,#5 Narrative struct feat; Supresses legal jargon; Difference between story and law
+    3881,#6 Animacy/Person feature
+    4364,#? 7 The masculine feature, really interesting and important.
+    4220,#8 Narrative object detector feature. Compare to 2646.
+    1043,#9 Tracks person and sphere of influence, identity/agency/ownership
+    2037,#10 Grammatical Subject detector
+    2554,#11 Self-referentail pronouns, e.g. herself, himself etc.
+    5052,#12 The most general purpose anafora (standin word)
+    2270,#13 Relational nouns, the "possessed", e.g. the "brother" in "I am going with my brother"
+    5793,#14 Semantic relation, connection and comparison; (with, to ,after, joint) etc.
+    5581,#15 Asylum seeking detector
+    4112,#16 /////////////////////////////////////
+    2480,#17 the "Because" feture. Logical causation
+    4980,#18 /////////////////////////////////////
+    3477,#19 mutual interaction detector; Mostly in idioms like "one anoter" and "each other"
+    503,#20 Sentence initial He.
+    4249,#21 "Zero Relative Clause, no Pronoun" detector, e.g. "...woman [that] he..."
+    2746,#22 "Quantity and Magnitude" detector. At high deals with quants, at mid deals with things that have a quantitive element to them
+    4572,#23 Identity feature; Is it the same, different or composed?
 ]
 
 
@@ -409,7 +437,8 @@ for i in range(len(lded_feats)):
 
 #region** Helper funcs
 
-def feat_words(feat_n): #? The words found here are FROM THE MATCHES WITH THE GENDERED WORDS. Not all the words.
+#? Turns out this one isn't very useful for feat interps generally...
+def feat_words(feat_n): # Gender related mathes only.
     print(f"Test feat is: {feat_n}")
     print("High:")
     print(df2[df2["feat"] == feat_n]["word"].unique())
@@ -418,36 +447,228 @@ def feat_words(feat_n): #? The words found here are FROM THE MATCHES WITH THE GE
     print("Lows")
     print(df0[df0["feat"] == feat_n]["word"].unique())
 
-#endregion** Helper funcs
 
-def mc_all_ws(feat,strata):
+#region* Context related
+
+
+def _find_ex_ctx(feat,w,strata): #Index and context of example containing a word
+    
+    search_id = tok.encode(w)[1] #Encoding starts with 101, ends with 102
+    
+    hit_ids = []
+    hit_ctxs = []
+
+    for i in range(len(lded_feats[feat_idxer[feat]]["examples"][strata])):
+        if (lded_feats[feat_idxer[feat]]["examples"][strata][i]["token_id"] == search_id):
+            hit_ids.append(i)
+            hit_ctxs.append(lded_feats[feat_idxer[feat]]["examples"][strata][i]["context"])
+
+    return hit_ids,hit_ctxs
+
+
+def _ctxs_len(ctxs):
+    for i in range(3):
+        print(f"Strata {i}: {len(ctxs[i][0])}")
+
+
+def _ctxs_sample(ctxs,strata,k=5):
+    for i in range(k):
+        print(f"Ex {i}")
+        print(ctxs[strata][1][i])
+        print("-"*20)
+
+
+def all_find_ex_ctx(feat,w):
+    
+    ret = []
+
+    for i in range(3):
+        ret.append(_find_ex_ctx(feat,w,i))
+    
+    return ret
+
+
+#endregion* Context related
+
+
+#region* Most common related
+
+
+def mc_all_ws(feat,strata): #All Unique words and Counter for feat
+
+    if (len(lded_feats[feat_idxer[feat]]["examples"][strata]) == 0): #Catch empties
+        return []
+
     ids = []
     for ex in lded_feats[feat_idxer[feat]]["examples"][strata]:
         ids.append(ex["token_id"])
     
     idf = pd.DataFrame(ids)
-
-    mc = Counter(ids)
     unqids = idf[0].unique().tolist()
+    
+    #Creating the counter
+    mc = Counter(ids) #Count ids
+    cdict = {(tok.decode(k),v) for k,v in mc.items()} #dict with names instead
+    redict = sorted(cdict,key=lambda x: x[1],reverse=True) #sort by most-common-first
+    
 
-    return [tok.decode(id) for id in unqids],mc
-
-
-#curr Workflow: Check dfs for gender info. Check fprint for alignment with dfs.
-
-#k = fprint_examples(feat,ret=True,minimal=True)
-
-# df2[df2["feat"] == 682]["word"].unique()
-# df1[df1["feat"] == 682]["word"].unique()
-# df0[df0["feat"] == 682]["word"].unique()
-#fprint_examples(lded_feats[feat_idxer[test_feat]],minimal=False)
+    return [tok.decode(id) for id in unqids],redict
 
 
+def mc_awas(feat): #most common, all words all strata
+    ret = []
 
+    for i in range(3):
+        ret.append(mc_all_ws(feat,i))
+
+    return ret
+
+
+#Helper function for printing mcawas
+def _mc_print(mcawa,topk):
+    print("mc_Highs")
+    if(mcawa[2] == []):
+        print("Empty!")
+    else:
+        print(mcawa[2][1][:topk])
+    print("mc_Mids")
+    if(mcawa[1] == []):
+        print("Empty!")
+    else:
+        print(mcawa[1][1][:topk])
+    print("mc_Lows")
+    if(mcawa[0] == []):
+        print("Empty!")
+    else:
+        print(mcawa[0][1][:topk])
+
+
+
+#endregion* Most common related
+
+
+# def get_coacts(stored_vec):
+
+
+def tprint(feat,topk=10): #Complete print function for all of the above
+    mcawas = mc_awas(feat)
+    
+    print(f"Feature: {feat}")
+    print(f"All words, and most common {topk} by count")
+    _mc_print(mcawas,topk)
+    print("#"*50)
+    print("#"*50)
+    print("Example sample, with context")
+    fprint_examples(lded_feats[feat_idxer[feat]],minimal=False)
+
+
+#endregion** Helper funcs
+
+
+#TODO Workflow: Check dfs for gender info. Check fprint for alignment with dfs.
+
+# tprint(test_feat)
+# ctx_word = ""
+# ctxs = all_find_ex_ctx(test_feat,ctx_word)
+# _ctxs_len(ctxs)
+# _ctxs_sample(ctxs,s)
+
+
+#region curr Look at co-acts as well.
+
+nfeats = [
+	170,
+	4364,
+	1599,
+	4803,
+	714,
+	3348,
+	632,
+	461,
+	948,
+	6132,
+	3924,
+	5782,
+	2532,
+	4026,
+	3881,
+	2270,
+	4868,
+	5196,
+	926,
+	1041,
+	6002,
+]
+
+
+n_lded_feats = []
+for f in tqdm(nfeats,desc="Loading feats..."):
+    p = feat_ldp + f"features/feature_{f}.pkl"
+    
+    with open(p,"rb") as f:
+        n_lded_feats.append(pickle.load(f))
+
+
+#region** New Helpers
+
+
+
+def gen_mc_all_ws(feat,strata,lded_feats,feat_idxer): #All Unique words and Counter for feat
+
+    if (len(lded_feats[feat_idxer[feat]]["examples"][strata]) == 0): #Catch empties
+        return []
+
+    ids = []
+    for ex in lded_feats[feat_idxer[feat]]["examples"][strata]:
+        ids.append(ex["token_id"])
+    
+    idf = pd.DataFrame(ids)
+    unqids = idf[0].unique().tolist()
+    
+    #Creating the counter
+    mc = Counter(ids) #Count ids
+    cdict = {(tok.decode(k),v) for k,v in mc.items()} #dict with names instead
+    redict = sorted(cdict,key=lambda x: x[1],reverse=True) #sort by most-common-first
+    
+
+    return [tok.decode(id) for id in unqids],redict
+
+
+def gen_mc_awas(feat,lded_feats,feat_idxer): #most common, all words all strata
+    ret = []
+
+    for i in range(3):
+        ret.append(mc_all_ws(feat,i,lded_feats,feat_idxer))
+
+    return ret
+
+
+
+
+
+nfeat_idxer = dict((v,k) for k,v in dict(enumerate(nfeats)).items())
+
+
+def ntprint(feat,lded_feats,feat_idxer,topk=10): #Complete print function for all of the above
+    mcawas = gen_mc_awas(feat,lded_feats,feat_idxer)
+    
+    print(f"Feature: {feat}")
+    print(f"All words, and most common {topk} by count")
+    _mc_print(mcawas,topk)
+    print("#"*50)
+    print("#"*50)
+    print("Example sample, with context")
+    fprint_examples(n_lded_feats[nfeat_idxer[feat]],minimal=False)
+
+#endregion** New Helpers
 
 
 print("STOP")
 print("STOP")
+
+#endregion curr Look at co-acts as well.
+
+
 
 #endregion* Analysis
 

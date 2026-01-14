@@ -46,6 +46,10 @@ seek_feat.py
 	Acts as the new dashboard
 
 
+auto_feat_find_tester.py
+	File that, in parallel, searches for a list of gendered words through all of the feature interps.
+		This has been very productive in finding important features.
+
 
 SAE_trainer.py
 	Main file for training SAEs; Originally did them on layers 3,6 and 9, but we mostly stuck to just 6

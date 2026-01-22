@@ -5,30 +5,84 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 
+
+
+
 #region Configuration
 
 # Hardware settings
 MAX_WORKERS = 18  # Leaves 2 cores free for OS/navigation
 FEAT_RP = "/home/strah/Documents/Work_related/thon-of-py/blober/features/"
 
+
+#region*# T1: General feature search
+
 # The exact list of words you want to find
-GEN_CHECK_LIST = [
-    "male","female", "man","woman", "boy","girl", "mr","mrs", "ms","miss",
-    "sir","madam", "gentleman","lady", "husband","wife", "father","mother",
-    "son","daughter", "brother","sister", "grandfather","grandmother",
-    "grandson","granddaughter", "widower","widow", "fiancé","fiancée",
-    "patriarch","matriarch", "landlord","landlady", "he","she", "him","her",
-    "his","hers", "himself","herself",
-]
+# GEN_CHECK_LIST = [
+#     "male","female", "man","woman", "boy","girl", "mr","mrs", "ms","miss",
+#     "sir","madam", "gentleman","lady", "husband","wife", "father","mother",
+#     "son","daughter", "brother","sister", "grandfather","grandmother",
+#     "grandson","granddaughter", "widower","widow", "fiancé","fiancée",
+#     "patriarch","matriarch", "landlord","landlady", "he","she", "him","her",
+#     "his","hers", "himself","herself",
+# ]
+
 
 # The pre-computed Token IDs corresponding to the list above
-ID_LIST = [
-    3287, 2931, 2158, 2450, 2879, 2611, 2720, 3680, 5796, 3335, 
-    2909, 21658, 10170, 3203, 3129, 2564, 2269, 2388, 2365, 2684, 
-    2567, 2905, 5615, 7133, 7631, 12787, 7794, 7794, 19154, 19455, 
-    12626, 13523, 18196, 2455, 2002, 2016, 2032, 2014, 2010, 5106, 
-    2370, 2841
+# ID_LIST = [
+#     3287, 2931, 2158, 2450, 2879, 2611, 2720, 3680, 5796, 3335, 
+#     2909, 21658, 10170, 3203, 3129, 2564, 2269, 2388, 2365, 2684, 
+#     2567, 2905, 5615, 7133, 7631, 12787, 7794, 7794, 19154, 19455, 
+#     12626, 13523, 18196, 2455, 2002, 2016, 2032, 2014, 2010, 5106, 
+#     2370, 2841
+# ]
+
+#endregion*# T1: General feature search
+
+
+#region* T2: Female feature finder
+
+GEN_CHECK_LIST = [
+"female",
+"woman",
+"girl",
+"mrs",
+"ms","miss",
+"madam",
+"lady",
+"wife",
+"mother",
+"daughter",
+"sister",
+"grandmother",
+"granddaughter",
+"widow",
+"matriarch",
 ]
+
+
+ID_LIST = [
+2931,
+2450,
+2611,
+3680,
+5796,3335,
+21658,
+3203,
+2564,
+2388,
+2684,
+2905,
+7133,
+12787,
+7794,
+13523,
+]
+
+#endregion* T2: Female feature finder
+
+
+
 
 # Create a fast lookup set for workers (O(1) lookup time)
 TARGET_ID_SET = set(ID_LIST)
@@ -37,6 +91,9 @@ TARGET_ID_SET = set(ID_LIST)
 ID_TO_WORD_MAP = dict(zip(ID_LIST, GEN_CHECK_LIST))
 
 #endregion
+
+
+
 
 #region Main Funcs
 

@@ -35,7 +35,7 @@ from transformers import PreTrainedModel,PretrainedConfig
 from safetensors.torch import load_file
 
 
-#region? PREPROCESSING DESCRIPTION
+#region? TO-DOs and TO-DIDs
 #* We started with the original dataframe, and used .apply() to tokenize all the rows (slow)
 #* Following this, we used a combination of create_overlapping_chunks() and .explode to create a new ds
 #* This one has 252503 entries in it, where many are below the max 512.
@@ -107,7 +107,6 @@ steps = data_size/batch_size #Number of examples
 #region Paths
 
 
-
 root_p = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/steerer/"
 load_p = root_p + "loads/"
 save_p = root_p + "saves/"
@@ -140,6 +139,7 @@ mact_p = store_p + mact_namer
 
 
 class ActDataset(Dataset):
+	
 	def __init__(self, input_ids, labels, pad_id=0):
 		self.input_ids = input_ids
 		self.labels = labels
@@ -394,13 +394,6 @@ def create_overlapping_chunks(tokens, chunk_size=512, overlap=100):
 
 
 
-def _printer(pre,post):
-	print(pre)
-	print("#"*50)
-	print(post)
-
-
-
 #region* monkey patching torch.load
 
 og_torch_load = torch.load
@@ -570,124 +563,10 @@ diter = iter(loader)
 
 
 
-#region# Mact load
-
-# #Max acts
-# with open(mact_p,"rb") as f:
-# 	mact= pickle.load(f)
-
-#endregion#
+#region Main Operations
 
 
-
-#region# Diff_Vecs (Where applicable)
-
-#########################################
-#region# T1: Difference vectors
-
-# diff_p = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/steerer/steering_vecs/"
-# ns = ["guy_minus_girl.pt","guy_minus_boy.pt","boy_minus_girl.pt"]
-# diffs = []
-# dif_co = 1 
-
-#region# T1: Loading diffs
-
-# for n in ns:
-# 	dn_p = diff_p + n
-# 	with open(dn_p,"rb") as f:
-# 		diffs.append(torch.load(f))
-
-#endregion
-
-
-#endregion
-#########################################
-#region# T2: Load avg difference vec
-
-# avg_diff_p = diff_p + "avg_masc-fem_vec_v1.pt"
-
-# with open(avg_diff_p,"rb") as f:
-# 	avg_diff_v1 = torch.load(f)
-
-# #* Defining the scaler.
-# avg_diff_scaler = 3
-
-
-#endregion
-#########################################
-#region# T3: Global Difference (same as T2)
-
-#region*# Naive ADVec, No good 
-
-# avg_diff_p = diff_p + "avg_masc-fem_vec_v1.pt"
-
-# with open(avg_diff_p,"rb") as f:
-# 	avg_diff_vec = torch.load(f)
-
-# #Defining the scaler.
-# avg_diff_scaler = 3
-
-
-#endregion	
-
-#region*# Denoise by taking only those above 0.2 and below -0.2
-
-# interdexes = [
-# 	2346,2353,898,4866,3787,381, #Masc main. Interps: [him],[he],[he],[he+would/could/can etc.], [he,his], [his/my]
-# 	3719, #Masc side. Interps: [PAD]
-# 	4081,4816,2687,4868, #Fem main. Interps: [Elizabeth,Catherine,widow,wife etc.], [general her], [rand fems], [her/she after prepositions]
-# 	5284,408,3714,2063,# Fem side. Interps: [mother etc.], [|masc| or her/wife],[Family terms] ,[She/Her, first cap]
-# 	]
-
-# intervals = [
-# 	0.5340,0.4885,0.4829,0.4694,0.2582,0.28,#Masc main
-# 	0.2135, #Masc side
-# 	1.3966,1.0132,0.5708,0.5120, #Fem main
-# 	0.7836,0.6872,0.2297,0.2077, #Fem side
-# 	]
-
-# #? T3.1: Modified from the actual average value, specifically in positions 7(OG*0.55),8(OG*1.25) and 11(OG*0.5)
-# #? T3.2.1: Above helped, but still needs to be better; Try relatively equalizing 7,8,9 (set 0.5). Kept 11 from 3.1 
-# #? T3.2.2: Found from princess embedding that 2687 should probs be higher than 4816
-# intervals = [
-# 	0.5340,0.4885,0.4829,0.4694,0.2582,0.28,#Masc main
-# 	0.2135, #Masc side
-# 	0.5681,0.5665,0.7708,0.5120, #Fem main
-# 	0.3918,0.6872,0.2297,0.2077, #Fem side
-# 	]
-
-# fig_test = show_act(intervals,"T3.2: Equalize 7,8,9")
-# # fig_test.show()
-
-
-# interall = list(zip(interdexes,intervals))
-
-# intervec = torch.zeros([6144])
-# for i,v in interall:
-# 	intervec[i] = v
-
-#? Testing here
-# intervec_scal = 1 #* Does an ok but incomplete job; Some corruptions
-# intervec_scal = 1.5 #* Does a better job, but proporitonally more corruption
-# intervec_scal = 2 #* As expected more effects, more corruption; Daughter overrepresented
-# intervec_scal = 2.5 #* More effects, Now also seeing a change from man to husband as well.
-# intervec_scal = 3 #* Expecting chaos. 
-
-
-
-
-
-#endregion
-
-#endregion
-#########################################
-
-
-#endregion#
-
-
-
-#region Input Select
+#region* Input Select
 
 
 #region# Other inputs
@@ -807,22 +686,21 @@ trace_inputs = {"input_ids":encs,"token_type_ids":ttids,"attention_mask":attens}
 #endregion TODO T5: Testing batches/recons - no steering.
 
 
-#endregion Input Select
+#endregion* Input Select
 
 
 
-#region Steering
+#region* Steering
 
 #? Make sure to do a .clone, otherwise the .saves get executed at the same time at the end.
 
-#region* Fixing "inputs", no labels!
+#region** Fixing "inputs", no labels!
 #? This doesn't work because 
 # inputs = nbat
 # trace_inputs = {k: v for k, v in nbat.items() if k != "labels"}
 # batch_labels = nbat["labels"].to(device)
 
-#endregion* Fixing "inputs", no labels!
-
+#endregion** Fixing "inputs", no labels!
 
 
 with torch.inference_mode():
@@ -834,10 +712,10 @@ with torch.inference_mode():
 		# no_sae = acts[:batch_size] #? Part of no steer / recon test T6
 		# to_sae = acts[batch_size:]
 		
-		#? Into the steerer
+		
 		sae_hidden = model.ae6.encode(to_sae)
-
 		sae_hidsav = sae_hidden.clone().to("cpu").save()
+
 
 		#region# Steer testing sae_hidden
 
@@ -952,9 +830,11 @@ with torch.inference_mode():
 		#endregion
 		##########################################
 
-		#endregion
 
-		#? Out of the steerer
+
+		#endregion# Steer testing sae_hidden
+
+		
 		recons = model.ae6.decode(sae_hidden)
 
 
@@ -970,11 +850,8 @@ with torch.inference_mode():
 		l11 = submodule_ref_last.nns_output.save()
 
 
-#endregion Steering
+#endregion* Steering
 
-
-
-#region Main Analysis
 
 
 #region* Post-Processing
@@ -989,6 +866,12 @@ elif (tok_type == "pool"):
 	fin_mean = torch.mean(l11[0],dim=1) #.to(device,non_blocking=True)
 
 #endregion* Post-Processing
+
+
+#endregion Main Operations
+
+
+#region Analysis
 
 
 
@@ -1257,7 +1140,136 @@ with torch.inference_mode():
 
 
 
+#endregion Analysis
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#region Unused 
+
+
+
+#region# Diff_Vecs (Where applicable)
+
+#########################################
+#region# T1: Difference vectors
+
+# diff_p = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/steerer/steering_vecs/"
+# ns = ["guy_minus_girl.pt","guy_minus_boy.pt","boy_minus_girl.pt"]
+# diffs = []
+# dif_co = 1 
+
+#region# T1: Loading diffs
+
+# for n in ns:
+# 	dn_p = diff_p + n
+# 	with open(dn_p,"rb") as f:
+# 		diffs.append(torch.load(f))
+
+#endregion
+
+
+#endregion
+#########################################
+#region# T2: Load avg difference vec
+
+# avg_diff_p = diff_p + "avg_masc-fem_vec_v1.pt"
+
+# with open(avg_diff_p,"rb") as f:
+# 	avg_diff_v1 = torch.load(f)
+
+# #* Defining the scaler.
+# avg_diff_scaler = 3
+
+
+#endregion
+#########################################
+#region# T3: Global Difference (same as T2)
+
+#region*# Naive ADVec, No good 
+
+# avg_diff_p = diff_p + "avg_masc-fem_vec_v1.pt"
+
+# with open(avg_diff_p,"rb") as f:
+# 	avg_diff_vec = torch.load(f)
+
+# #Defining the scaler.
+# avg_diff_scaler = 3
+
+
+#endregion	
+
+#region*# Denoise by taking only those above 0.2 and below -0.2
+
+# interdexes = [
+# 	2346,2353,898,4866,3787,381, #Masc main. Interps: [him],[he],[he],[he+would/could/can etc.], [he,his], [his/my]
+# 	3719, #Masc side. Interps: [PAD]
+# 	4081,4816,2687,4868, #Fem main. Interps: [Elizabeth,Catherine,widow,wife etc.], [general her], [rand fems], [her/she after prepositions]
+# 	5284,408,3714,2063,# Fem side. Interps: [mother etc.], [|masc| or her/wife],[Family terms] ,[She/Her, first cap]
+# 	]
+
+# intervals = [
+# 	0.5340,0.4885,0.4829,0.4694,0.2582,0.28,#Masc main
+# 	0.2135, #Masc side
+# 	1.3966,1.0132,0.5708,0.5120, #Fem main
+# 	0.7836,0.6872,0.2297,0.2077, #Fem side
+# 	]
+
+# #? T3.1: Modified from the actual average value, specifically in positions 7(OG*0.55),8(OG*1.25) and 11(OG*0.5)
+# #? T3.2.1: Above helped, but still needs to be better; Try relatively equalizing 7,8,9 (set 0.5). Kept 11 from 3.1 
+# #? T3.2.2: Found from princess embedding that 2687 should probs be higher than 4816
+# intervals = [
+# 	0.5340,0.4885,0.4829,0.4694,0.2582,0.28,#Masc main
+# 	0.2135, #Masc side
+# 	0.5681,0.5665,0.7708,0.5120, #Fem main
+# 	0.3918,0.6872,0.2297,0.2077, #Fem side
+# 	]
+
+# fig_test = show_act(intervals,"T3.2: Equalize 7,8,9")
+# # fig_test.show()
+
+
+# interall = list(zip(interdexes,intervals))
+
+# intervec = torch.zeros([6144])
+# for i,v in interall:
+# 	intervec[i] = v
+
+#? Testing here
+# intervec_scal = 1 #* Does an ok but incomplete job; Some corruptions
+# intervec_scal = 1.5 #* Does a better job, but proporitonally more corruption
+# intervec_scal = 2 #* As expected more effects, more corruption; Daughter overrepresented
+# intervec_scal = 2.5 #* More effects, Now also seeing a change from man to husband as well.
+# intervec_scal = 3 #* Expecting chaos. 
+
+
+
+
+
+#endregion
+
+#endregion
+#########################################
+
+
+#endregion#
+
+
 #region# Testing Analysis
+
 #########################################
 #region# T1: Changed boy to guy. Girl did not work.
 
@@ -1434,29 +1446,13 @@ with torch.inference_mode():
 # CLS_figs = [show_act(mf[i],f"Mtrimm - Ftrimm * 100 num {i}") for i in range(mf.size()[0])]
 
 #endregion
+
 #endregion# Testing Analysis
 
 
 
-#endregion Main Analysis
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#endregion Unused 
 
 
 print("FILE END")

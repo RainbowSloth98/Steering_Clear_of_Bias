@@ -22,6 +22,18 @@ from nnsight import LanguageModel
 from dictionary_learning.trainers.batch_top_k import BatchTopKSAE
 
 
+#region? Info:
+
+#* Steering file for only BTK style SAEs.
+#* T1: Only male and female feature
+#* T2: Above, but with exclusive co-activating features too.
+    #? Need to have an idea of which value to set them to.
+
+
+#endregion? Info:
+
+
+
 
 #region Config: Paths, Defs, etc.
 
@@ -38,8 +50,8 @@ class Config:
     BATCH_SIZE = 70
     DATA_SIZE = 22299
     
-    #@ Experiment Selectors
-    INPUT_MODE = "T2" # Options: "REAL", "T1", "T2", "T3" 
+    #@ Configs
+    INPUT_MODE = "T1" # Options: "REAL" / Tx, where x=1,2,3...
     
     # Paths
     ROOT_P = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/steerer/"
@@ -129,16 +141,11 @@ def create_overlapping_chunks(tokens, chunk_size=512, overlap=100):
 		yield tokens[i:i + chunk_size]
 
 
-def single_mactensor_recreate(indies,vals):
-	
-	cand = torch.zeros([6144]).to(torch.float32)
-
-	#Broadcasting with torch makes this fast
-	cand[indies] = vals
-
-	return cand
-
-
+def recreate_feat_dist(sf_inp: tuple):
+	idxs,vals = sf_inp
+	ret = torch.zeros([6144])
+	ret[idxs] = vals
+	return ret
 
 #endregion Funcs
 
@@ -201,6 +208,7 @@ class WrapClassModel(PreTrainedModel):
         return self.classifier(input=input, labels=labels)
 
 #endregion Class defs
+
 
 
 #region Setup & Loads
@@ -318,6 +326,12 @@ def get_input_sentences(mode, tokenizer):
 
 #region Main Exe
 
+#TODO Implement the steering for the BTK
+def steering_t1():
+    pass
+
+
+
 
 def main():
     print(f"Starting Steering Tester... Mode: {CFG.INPUT_MODE}")
@@ -364,10 +378,7 @@ def main():
             sae_hidden = model.ae6.encode(acts)
             sae_hidsav = sae_hidden.clone().to("cpu").save()
 
-            # #! Refactor: Steering logic location. 
-            # Currently just passing through, but this is where your 
-            # commented-out "T1/T2/T3" modification code would live.
-            # Example: sae_hidden[:, 1:, :] += vector
+
             
             # SAE Decode
             recons = model.ae6.decode(sae_hidden)
@@ -385,10 +396,12 @@ def main():
     out11 = l11.value[0] # .value required for nnsight saves if not using implicit .save() behavior
     
 
+
     if CFG.TOK_TYPE == "cls":
         fin_mean = finl.value[0].to(CFG.DEVICE, non_blocking=True)
     elif CFG.TOK_TYPE == "pool":
         fin_mean = torch.mean(out11, dim=1)
+
 
     # 6. Analysis (Example: Finding gender features)
     # This mirrors the logic at the end of your original file

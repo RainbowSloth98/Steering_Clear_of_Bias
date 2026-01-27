@@ -64,6 +64,7 @@ train_classhead.py
 	The output is a classifier that we use in steering_tester.py to see whether our steering effects the output.
 
 steering_tester.py
+					Moved to old, replaced with steering_refactored.py
 		Now uses a modified ActDataset.
 	The main place all the steering is done.
 	Takes a TensorDataset with labels, as input and puts it through nnsight

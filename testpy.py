@@ -1,115 +1,57 @@
 import torch
-import pickle
-from tqdm import tqdm
-import os
-import torch
-import pickle
-from collections import namedtuple
-from functools import partial
+import torch.nn as nn
+from transformers import PreTrainedModel, PretrainedConfig
 
-from datasets import load_dataset
+# --- 1. Redefine Custom Classes ---
 
-from dictionary_learning import AutoEncoder
-from dictionary_learning.trainers import StandardTrainer
-from dictionary_learning.trainers import BatchTopKTrainer
-from nnsight import LanguageModel
+class CustomModCon(PretrainedConfig):
+    def __init__(self, hidden_size=768, **kwargs):
+        super().__init__(**kwargs)
+        self.hidden_size = hidden_size
 
+class ClassHead(nn.Module):
+    def __init__(self, hidden_d):
+        super().__init__()
+        self.classifier = nn.Linear(hidden_d, 1)
 
+    def forward(self, input_ids=None, labels=None):
+        logits = self.classifier(input_ids)
+        loss = None
 
-#region? Info
+        if labels is not None:
+            loss_fn = nn.BCEWithLogitsLoss()
+            loss = loss_fn(logits.view(-1), labels.float())
 
-#* Looking at the different versions of BTK SAEs to see which performed best.
-	#* That would probably be the 144000 version, that has a a FVE of 0.9628
+        return {"logits": logits, "loss": loss}
 
-#? Searching for gender features in 144k.
+class WrapClassModel(PreTrainedModel):
+    config_class = CustomModCon # explicit link to config
 
-#endregion? Info
+    def __init__(self, config):
+        super().__init__(config)
+        self.classifier = ClassHead(config.hidden_size)
 
+    def forward(self, input_ids=None, labels=None):
+        return self.classifier(input_ids=input_ids, labels=labels)
 
-#region! Fix
+# --- 2. Load the Model ---
 
-#TODO Takes far too long to load all the features. (even a subset)
+checkpoint_path = "/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/pytest/loads/l11_checkpoint-1263/"
 
-#endregion! Fix
+# Register the custom config so from_pretrained recognizes it if needed
+# (Optional but recommended for custom architectures)
+CustomModCon.register_for_auto_class()
 
-
-#region Classes and Objects
-
-
-
-#endregion Classes and Objects
-
-
-
-#region Path and loading
-
-
-
-#region*# T1: Looking through different BTK SAEs
-
-
-# tmap = {1:"10k",2:"30k",3:"60k",4:"150k"}
-
-# ldeds = []
-
-# # 4 experiments
-# for i in range(1,5):
-# 	p = f"/home/strah/Desktop/Work_stuff/Papers/2.1_Paper/Code/data/SAE_trainer/saves/tries/try_{i}/pretrain_SAEs/SAE6_logs/pretrain_log_SAE6.pkl"
-
-# 	with open(p,"rb")as f:
-# 		ldeds.append(pickle.load(f))
-
-
-#endregion*# T1: Looking through different BTK SAEs
+# Load the model
+model = WrapClassModel.from_pretrained(checkpoint_path)
+model.eval()
 
 
 
-#region* T2: Load feats to look for gender
-
-batch1 = list(range(3072))
-
-feats = []
-
-for ind in tqdm(batch1,desc="Loading feats..."):
-	p = f"/home/strah/Documents/Work_related/thon-of-py/blober/features/feature_{ind}.pkl"
-
-	if not (os.path.exists(p)):
-		pass
-	else:
-		with open(p,"rb") as f:
-			feats.append(pickle.load(f))
-
-
-
-#endregion* T2: Load feats to look for gender
-
-
-
-
-#endregion Path and loading
-
-
-
-
-#region Main Test area
-
-
-
-
+print(f"Model loaded successfully from: {checkpoint_path}")
+print(f"Hidden size: {model.config.hidden_size}")
 
 
 
 print("STOP")
 print("STOP")
-
-
-#region*# Mini-notes
-
-#f["examples][2][example_idx]
-
-#endregion*# Mini-notes
-
-
-
-#endregion Main Test area
-

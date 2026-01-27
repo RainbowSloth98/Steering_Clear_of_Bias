@@ -10,6 +10,13 @@ import random as rand
 
 
 
+#region? Info
+# The dfs are a selection of just the gendered words, not all of them
+# fprint gives a selection of all of them
+# Crosschecking is necessary to not misinterpret the importance or intensity of features.
+#endregion? Info
+
+
 
 #region Paths
 
@@ -575,13 +582,13 @@ print("STOP")
 #endregion**# T3.1: Female only feats - Looking for female feature.
 
 
-#? T4: Male and feamle feature focus
-check_feats = [
-	4364, #Main male feature
-	1562, #Main female feature
-]
-mfeat = check_feats[0]
-ffeat = check_feats[1]
+# #? T4: Male and feamle feature focus
+# check_feats = [
+# 	4364, #Main male feature
+# 	1562, #Main female feature
+# ]
+# mfeat = check_feats[0]
+# ffeat = check_feats[1]
 
 
 
@@ -619,6 +626,17 @@ ffeat = check_feats[1]
 # ]
 
 #endregion**# T4.1: Coact interps
+
+
+#region** New test feats
+
+check_feats =[
+	1914,
+	6124,
+]
+
+#endregion** New test feats
+
 
 
 feat_idxer = dict((v,k) for k,v in dict(enumerate(check_feats)).items())

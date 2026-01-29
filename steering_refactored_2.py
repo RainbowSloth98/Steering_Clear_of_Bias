@@ -76,6 +76,8 @@ def setup_nnsight_model():
     
     return model, tok
 
+
+
 #@ Data Loader
 def get_dataloader(tokenizer):
     """Loads datasets, computes weights, and returns the loader."""
@@ -183,14 +185,68 @@ def get_input_sentences(mode, tokenizer):
 
 #region Funcs
 
-# # Original monkey patch application
-# og_torch_load = torch.load
 
-# def _ntorch_load(*args, **kwargs):
-#     kwargs['weights_only'] = False
-#     return torch.load(*args, **kwargs)
+def collect_difference_vectors(model, sae, paired_loader, device="cuda"):
+	"""
+	Phase 1: Processes counterfactual pairs to extract feature-wise differences.
+	
+	Args:
+		model: The NNsight language model.
+		sae: The loaded SAE.
+		paired_loader: A DataLoader yielding batches of paired inputs 
+					(e.g., {'original': batch_a, 'counterfactual': batch_b}).
+		device: 'cuda' or 'cpu'.
+		
+	Returns:
+		torch.Tensor: A tensor of shape [N_samples, N_features] containing
+					(Act_counterfactual - Act_original).
+	"""
+	diff_vectors = []
+	
+	print("Phase 1: Collecting Difference Vectors...")
+	
+	# Disable gradients for inference speed
+	with torch.no_grad():
+		for batch in tqdm(paired_loader, desc="Processing Pairs"):
+			
+			# 1. Unpack batch
+			# Assuming loader returns dict with 'original' and 'counterfactual' keys
+			# containing tokenized inputs.
+			input_og = batch['original'].to(device)
+			input_cf = batch['counterfactual'].to(device)
+			
+			# 2. Trace Original
+			# We use a clean context for each to avoid graph leakage
+			with model.trace(input_og) as tracer:
+				# Hook point depends on your specific model setup (e.g., layer 6 output)
+				acts_og = model.bert.encoder.layer[6].output[0] 
+				sae_latents_og = sae.encode(acts_og)
+				sae_latents_og.save()
+				
+			# 3. Trace Counterfactual
+			with model.trace(input_cf) as tracer:
+				acts_cf = model.bert.encoder.layer[6].output[0]
+				sae_latents_cf = sae.encode(acts_cf)
+				sae_latents_cf.save()
+			
+			# 4. Compute Difference (Delta)
+			# We usually average over the sequence length to get one vector per example
+			# Or you can target specific token positions if known.
+			# Here, we use mean pooling over the sequence for robustness.
+			vec_og = torch.mean(sae_latents_og.value, dim=1) 
+			vec_cf = torch.mean(sae_latents_cf.value, dim=1)
+			
+			# Delta: Direction FROM Original TO Counterfactual
+			# Positive values = Features added in CF
+			# Negative values = Features removed in CF
+			delta = vec_cf - vec_og
+			
+			diff_vectors.append(delta.cpu())
 
-# torch.load = _ntorch_load
+	# Stack into single tensor: [Total_Samples, Feature_Dim]
+	full_diff_tensor = torch.vstack(diff_vectors)
+	return full_diff_tensor
+
 
 
 def hist(tens: torch.Tensor, idx: int, show=False, ret=True):
@@ -222,11 +278,13 @@ def hist(tens: torch.Tensor, idx: int, show=False, ret=True):
     if ret: return fig
 
 
+
 def show_act(tens, namer):
     """Simple line plot for tensor values."""
     fig = go.Figure(data=go.Scatter(y=tens, mode='lines', name='Tensor Values'))
     fig.update_layout(title=namer, xaxis_title='Index', yaxis_title='Value')
     return fig
+
 
 
 def create_overlapping_chunks(tokens, chunk_size=512, overlap=100):
@@ -240,11 +298,15 @@ def create_overlapping_chunks(tokens, chunk_size=512, overlap=100):
 		yield tokens[i:i + chunk_size]
 
 
+
 def recreate_feat_dist(sf_inp: tuple):
 	idxs,vals = sf_inp
 	ret = torch.zeros([6144])
 	ret[idxs] = vals
 	return ret
+
+
+
 
 #endregion Funcs
 
@@ -318,6 +380,7 @@ CustomModCon.register_for_auto_class()
 
 
 #region Config: Paths, Defs, etc.
+
 
 class Config:
     """Paths, defs, params and others"""
@@ -428,7 +491,22 @@ def steering_t0(sae_hidden):
 
 
 
+
+
 def main():
+    print(f"Starting Steering Tester... Mode: {CFG.INPUT_MODE}")
+    
+    # 1. Load Components
+    model, tok = setup_nnsight_model()
+    loader = get_dataloader(tok)
+
+    diffs = collect_difference_vectors(model,model.ae6,loader)
+
+
+
+
+
+def steer_main():
     print(f"Starting Steering Tester... Mode: {CFG.INPUT_MODE}")
     
     # 1. Load Components
@@ -508,6 +586,9 @@ def main():
         real_analysis(fin_mean,pre_mean,n_sav,og_sav,tok,batch)
 
     print("Done.")
+
+
+
 
 
 
